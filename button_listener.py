@@ -1,4 +1,11 @@
-import RPi.GPIO as GPIO
+from app.logs.logger_helper import log_event
+
+try:
+    import RPi.GPIO as GPIO
+    GPIO_AVAILABLE = True
+except (ImportError, RuntimeError):
+    print("⚠️ GPIO недоступен (не Raspberry Pi / Orange Pi?). Работа кнопки отключена.")
+    GPIO_AVAILABLE = False
 import time
 import subprocess
 import threading
@@ -12,13 +19,18 @@ TIMEOUT_NO_CLIENTS = 300       # 5 минут в секундах
 last_client_time = time.time()
 
 def setup_gpio():
+    if not GPIO_AVAILABLE:
+        return
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
 
 def start_ap_and_web():
     global last_client_time
+
+
     last_client_time = time.time()
     print("🔧 Запуск точки доступа и веб-интерфейса...")
+    log_event("INFO", "Кнопка нажата — запуск точки доступа", action="WIFI_AP_START")
 
     # Запускаем AP
     subprocess.call(['sudo', 'bash', 'setup_ap.sh'])
@@ -35,13 +47,19 @@ def start_ap_and_web():
 def monitor_ap_clients():
     global last_client_time
     print("⏳ Ожидаем подключения к точке доступа...")
+    log_event("INFO", "Ожидание подключения к точке доступа", action="WIFI_AP_MONITOR")
+
 
     while True:
         if has_connected_clients():
             last_client_time = time.time()
             print("📶 Обнаружено подключение к AP.")
+            log_event("INFO", "Обнаружено подключение клиента к AP", action="WIFI_CLIENT_CONNECTED")
+
         elif time.time() - last_client_time > TIMEOUT_NO_CLIENTS:
             print("❌ Никто не подключался к AP за 5 минут — выключаем.")
+            log_event("WARNING", "Никто не подключился за 5 минут. Выключаем AP.", action="WIFI_AP_TIMEOUT")
+
             subprocess.call(['sudo', 'bash', 'stop_ap.sh'])
             subprocess.call(['sudo', 'python3', 'main.py'])
             break
@@ -53,6 +71,9 @@ def has_connected_clients():
     return "AutoPoliv" in output and "yes" in output
 
 def listen_button():
+    if not GPIO_AVAILABLE:
+        print("⏭️ Пропуск прослушивания кнопки — GPIO недоступен")
+        return
     pressed_time = 0
     while True:
         if GPIO.input(BUTTON_PIN) == GPIO.LOW:
@@ -62,7 +83,6 @@ def listen_button():
                 print("🔘 Кнопка удерживалась — включаем режим настройки Wi-Fi.")
                 start_ap_and_web()
                 pressed_time = 0
-                # Ждём завершения, не даём запустить снова пока работает
                 time.sleep(TIMEOUT_NO_CLIENTS + 5)
         else:
             pressed_time = 0

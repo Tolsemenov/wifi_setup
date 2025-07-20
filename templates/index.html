@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Настройка Wi-Fi</title>
+</head>
+<body>
+  <h1>Подключение к Wi-Fi</h1>
+  <form method="POST" action="/connect">
+    <input name="ssid" placeholder="Имя сети" required><br>
+    <input name="password" placeholder="Пароль" required><br>
+    <button type="submit">Подключиться</button>
+  </form>
+
+  <h2>Сохранённые сети:</h2>
+  <ul>
+    {% for net in networks %}
+      <li>
+        {{ net.ssid }} —
+        <a href="/delete/{{ net.ssid }}">Удалить</a>
+      </li>
+    {% endfor %}
+  </ul>
+</body>
+</html>

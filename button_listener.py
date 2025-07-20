@@ -1,5 +1,7 @@
-from app.logs.logger_helper import log_event
+# app/wifi_setup/button_listener.py
 
+
+from app.logs.logger_helper import log_event
 try:
     import RPi.GPIO as GPIO
     GPIO_AVAILABLE = True
@@ -9,14 +11,26 @@ except (ImportError, RuntimeError):
 import time
 import subprocess
 import threading
-import os
+import asyncio
 
-BUTTON_PIN = 17                # Пин, к которому подключена кнопка
+
+
+BUTTON_PIN = 17                # Пин, к которому подключена кнопка SessionLocal
 HOLD_SECONDS = 3               # Время удержания для активации
 CHECK_CLIENTS_EVERY = 10       # Частота проверки активности
 TIMEOUT_NO_CLIENTS = 300       # 5 минут в секундах
 
 last_client_time = time.time()
+
+
+
+
+def log_async(level: str, message: str, action: str = "", target: str = None):
+    try:
+        asyncio.run(log_event(level, message, action, target))
+    except RuntimeError:
+        loop = asyncio.get_event_loop()
+        loop.create_task(log_event(level, message, action, target))
 
 def setup_gpio():
     if not GPIO_AVAILABLE:
@@ -30,7 +44,7 @@ def start_ap_and_web():
 
     last_client_time = time.time()
     print("🔧 Запуск точки доступа и веб-интерфейса...")
-    log_event("INFO", "Кнопка нажата — запуск точки доступа", action="WIFI_AP_START")
+    log_async("INFO", "Кнопка нажата — запуск точки доступа", action="WIFI_AP_START")
 
     # Запускаем AP
     subprocess.call(['sudo', 'bash', 'setup_ap.sh'])
@@ -47,18 +61,18 @@ def start_ap_and_web():
 def monitor_ap_clients():
     global last_client_time
     print("⏳ Ожидаем подключения к точке доступа...")
-    log_event("INFO", "Ожидание подключения к точке доступа", action="WIFI_AP_MONITOR")
+    log_async("INFO", "Ожидание подключения к точке доступа", action="WIFI_AP_MONITOR")
 
 
     while True:
         if has_connected_clients():
             last_client_time = time.time()
             print("📶 Обнаружено подключение к AP.")
-            log_event("INFO", "Обнаружено подключение клиента к AP", action="WIFI_CLIENT_CONNECTED")
+            log_async("INFO", "Обнаружено подключение клиента к AP", action="WIFI_CLIENT_CONNECTED")
 
         elif time.time() - last_client_time > TIMEOUT_NO_CLIENTS:
             print("❌ Никто не подключался к AP за 5 минут — выключаем.")
-            log_event("WARNING", "Никто не подключился за 5 минут. Выключаем AP.", action="WIFI_AP_TIMEOUT")
+            log_async("WARNING", "Никто не подключился за 5 минут. Выключаем AP.", action="WIFI_AP_TIMEOUT")
 
             subprocess.call(['sudo', 'bash', 'stop_ap.sh'])
             subprocess.call(['sudo', 'python3', 'main.py'])

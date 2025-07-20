@@ -15,7 +15,7 @@ import asyncio
 
 
 
-BUTTON_PIN = 17                # Пин, к которому подключена кнопка SessionLocal
+BUTTON_PIN = 17                # Пин, к которому подключена кнопка
 HOLD_SECONDS = 3               # Время удержания для активации
 CHECK_CLIENTS_EVERY = 10       # Частота проверки активности
 TIMEOUT_NO_CLIENTS = 300       # 5 минут в секундах
